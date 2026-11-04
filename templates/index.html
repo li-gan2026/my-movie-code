@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <link href="http://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <meta charset="utf-8">
+    <title>我的新闻聚合</title>
+
+</head>
+<body>
+    <div class="container mt-5">
+
+        <h1 class="mb-4 text-primary">我的无敌代码</h1>
+
+        <a href="/add" class="btn btn-success mb-3">➕ 手动添加电影</a >
+
+        <form action="/" method="GET" class="mb-4">
+
+            <div class="input-group" style="max-width: 500px;">
+                <input type="text" class="form-control" name="keyword" placeholder="输入电影名称搜索..." value="{{ request.args.get('keyword', '')}}">
+            <button class="btn btn-primary" type="submit">搜索</button>
+            </div>
+        </form>
+    
+        <table class="table table-hover table-bordered align-middle">
+            <!-- 分页按钮区 -->
+<nav aria-label="Page navigation" class="mt-4">
+    <ul class="pagination justify-content-center">
+        
+        <!-- 上一页按钮：如果有上一页，才显示链接 -->
+        {% if pagination.has_prev %}
+            <!-- 注意网址里要把 keyword 带上，不然翻页后搜索词就丢了 -->
+            <li class="page-item"><a class="page-link" href="/?page={{ pagination.prev_num }}&keyword={{ keyword }}">上一页</a ></li>
+        {% else %}
+            <li class="page-item disabled"><span class="page-link">上一页</span></li>
+        {% endif %}
+
+        <!-- 当前页码显示 -->
+        <li class="page-item active"><span class="page-link">第 {{ pagination.page }} 页 / 共 {{ pagination.pages }} 页</span></li>
+
+        <!-- 下一页按钮 -->
+        {% if pagination.has_next %}
+            <li class="page-item"><a class="page-link" href="/?page={{ pagination.next_num }}&keyword={{ keyword }}">下一页</a ></li>
+        {% else %}
+            <li class="page-item disabled"><span class="page-link">下一页</span></li>
+        {% endif %}
+        
+    </ul>
+</nav>
+            <thead class="table-dark">
+    <tr>
+        <th>编号</th>
+        <th>电影名称</th>
+        <th>评分</th>
+        <th>经典引言</th>
+        <th>抓取时间</th>
+        <th>操作</th>
+    </tr>
+</thead>
+<tbody>
+    <!-- 注意这里变成了 movies -->
+    {% for m in pagination.items %}
+    <tr>
+        <td>{{ m.id }}</td>
+        <td><strong>{{ m.title }}</strong></td>
+        <!-- 把评分变成红色的徽章 -->
+        <td><span class="badge bg-danger fs-6">{{ m.rating }}</span></td>
+        <td class="text-muted">{{ m.quote }}</td>
+        <td><small class="text-muted">{{ m.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</small></td>
+        <td>
+            <a href="/edit/{{ m.id }}" class="btn btn-sm btn-primary">编辑</a>
+            <form action="/delete/{{m.id}}" method="POST" style="display: inline;">
+                <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('确定要删除《{{ m.title }}》吗？');">删除</button>
+                <!--按钮 类型=提交    样式=按钮 按钮-小号 按钮-危险（红色）在..时点击=‘返回 确认’-->
+            </form>
+        </td>
+    </tr>
+    {% endfor %}
+</tbody>
+        </table>
+    </div>
+</body>
+</html>
