@@ -48,3 +48,17 @@ def delete_movie(id):
     db.session.delete(movie)
     db.session.commit()
     return redirect('/')
+
+@main_bp.route('/api/stats')
+def get_stats():
+    top_count = Movie.query.filter(Movie.rating >= 9.5).count()
+
+    mid_count = Movie.query.filter(Movie.rating >= 9.0, Movie.rating < 9.5).count()
+
+    low_count = Movie.query.filter(Movie.rating < 9.0).count()
+
+    data = {
+        "labels": ["9.5分以上", "9.0 ~ 9.4分", "9.0分以下"],
+        "values": [top_count, mid_count, low_count]
+    }
+    return data
