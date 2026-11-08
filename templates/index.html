@@ -10,10 +10,42 @@
 <body>
     <div class="container mt-5">
 
+                <!-- 登录状态导航栏 -->
+        <div class="d-flex justify-content-end mb-3">
+            {% if current_user.is_authenticated %}
+                <span class="me-3">欢迎，<strong>{{ current_user.username }}</strong>！</span>
+                <html lang="en">
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>Document</title>
+                </head>
+                <body>
+                    
+                </body>
+                </html>
+                <html lang="en">
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>Document</title>
+                </head>
+                <body>
+                    
+                </body>
+                </html></span>
+                <a href="/logout " class="btn btn-outline-danger btn-sm">退出登录</a >
+            {% else %}
+                <a href="/login" class="btn btn-outline-primary btn-sm me-2">去登录</a >
+                <a href="/register" class="btn btn-primary btn-sm">去注册</a >
+            {% endif %}
+        </div>
+
         <h1 class="mb-4 text-primary">我的无敌代码</h1>
 
-        <a href="/add" class="btn btn-success mb-3">➕ 手动添加电影</a >
-
+        {% if current_user.is_authenticated %}
+            <a href="/add" class="btn btn-success mb-3">➕ 手动添加电影</a >
+        {% endif %}
         <form action="/" method="GET" class="mb-4">
 
             <div class="input-group" style="max-width: 500px;">
@@ -70,11 +102,15 @@
         <td class="text-muted">{{ m.quote }}</td>
         <td><small class="text-muted">{{ m.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</small></td>
         <td>
-            <a href="/edit/{{ m.id }}" class="btn btn-sm btn-primary">编辑</a>
-            <form action="/delete/{{m.id}}" method="POST" style="display: inline;">
-                <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('确定要删除《{{ m.title }}》吗？');">删除</button>
-                <!--按钮 类型=提交    样式=按钮 按钮-小号 按钮-危险（红色）在..时点击=‘返回 确认’-->
-            </form>
+            {% if current_user.is_authenticated %}
+                <a href="/edit/{{ m.id }}" class="btn btn-sm btn-primary">编辑</a>
+                <form action="/delete/{{m.id}}" method="POST" style="display: inline;">
+                    <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('确定要删除《{{ m.title }}》吗？');">删除</button>
+                    <!--按钮 类型=提交    样式=按钮 按钮-小号 按钮-危险（红色）在..时点击=‘返回 确认’-->
+                </form>
+            {% else %}
+                <sqan class="text-muted">请先登录</sqan>
+            {% endif %}
         </td>
     </tr>
     {% endfor %}

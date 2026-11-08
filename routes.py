@@ -1,5 +1,6 @@
-from flask import Blueprint, render_template, request, redirect
-from models import db, Movie
+from flask import Blueprint, render_template, request, redirect, url_for
+from flask_login import login_user, logout_user,  login_required, current_user
+from models import db, Movie, User
 
 # 1. 创建蓝图（Blueprint）。这是 Flask 拆分代码的核心！
 # 'main' 是蓝图的名字，__name__ 是当前文件的位置
@@ -19,6 +20,7 @@ def index():
     return render_template("index.html", movies=pagination.items, pagination=pagination, keyword=keyword)
 
 @main_bp.route('/add', methods=['GET', 'POST'])
+@login_required
 def add_movie():
     if request.method == 'POST':
         title = request.form.get('title')
@@ -32,6 +34,7 @@ def add_movie():
     return render_template('add.html')
 
 @main_bp.route('/edit/<int:id>', methods=['GET', 'POST'])
+@login_required
 def edit_movie(id):
     movie = Movie.query.get_or_404(id)
     if request.method == 'POST':
@@ -43,6 +46,7 @@ def edit_movie(id):
     return render_template('edit.html', movie=movie)
 
 @main_bp.route('/delete/<int:id>', methods=['POST'])
+@login_required
 def delete_movie(id):
     movie = Movie.query.get_or_404(id)
     db.session.delete(movie)
@@ -62,3 +66,41 @@ def get_stats():
         "values": [top_count, mid_count, low_count]
     }
     return data
+
+# 注册页面
+@main_bp.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        
+        # 查一下这个名字有没有被注册过
+        if User.query.filter_by(username=username).first():
+            return "这个用户名已经被注册啦！<a href=' '>返回</a >"
+            
+        new_user = User(username=username, password=password) # 简单起见，明文密码存了，真实开发要加密！
+        db.session.add(new_user)
+        db.session.commit()
+        return redirect('/login')
+    return render_template('register.html')
+
+# 登录页面
+@main_bp.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        
+        user = User.query.filter_by(username=username, password=password).first()
+        if user:
+            login_user(user) # 让管家记住这个人
+            return redirect('/')
+        else:
+            return "账号或密码错误！<a href='/login'>重试</a >"
+    return render_template('login.html')
+
+# 退出登录
+@main_bp.route('/logout')
+def logout():
+    logout_user() # 管家注销
+    return redirect('/login') 
