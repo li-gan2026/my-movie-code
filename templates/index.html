@@ -106,12 +106,14 @@
         <td>
             {% if current_user.is_authenticated %}
                 <a href="/edit/{{ m.id }}" class="btn btn-sm btn-primary">编辑</a>
-                <form action="/delete/{{m.id}}" method="POST" style="display: inline;">
-                    <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('确定要删除《{{ m.title }}》吗？');">删除</button>
-                    <!--按钮 类型=提交    样式=按钮 按钮-小号 按钮-危险（红色）在..时点击=‘返回 确认’-->
-                </form>
+                <!-- 只有登录的人能看到 -->
+            <button onclick="getAiReview('{{ m.id }}')" class="btn btn-sm btn-outline-warning">✨ AI 影评</button>
+
+            <form action="/delete/{{ m.id }}" method="POST" style="display: inline;">
+                <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('确定要删除吗？')">删除</button>
+            </form>
             {% else %}
-                <sqan class="text-muted">请先登录</sqan>
+                <span class="text-muted">请先登录</span>
             {% endif %}
         </td>
     </tr>
@@ -157,6 +159,23 @@
             // 4. 把图画出来
             myChart.setOption(option);
         });
+       function getAiReview(movieId) {
+    // 提示用户正在生成
+    alert("AI 正在疯狂码字中，点击确定后请稍等 3-5 秒...");
+
+    // 去请求后端的接口
+    fetch(`/api/ai_review/${movieId}`)
+        .then(res => res.json())
+        .then(data => {
+            if(data.success) {
+                // 如果成功，弹窗显示 AI 的影评
+                alert("🤖 AI 影评：\n\n" + data.review);
+            } else {
+                alert("生成失败：" + data.review);
+            }
+        })
+        .catch(err => alert("请求出错啦！请检查网络或终端报错。"));
+}
 </script>
 </body>
 </html>

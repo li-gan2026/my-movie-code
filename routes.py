@@ -1,6 +1,7 @@
 from flask import Blueprint, render_template, request, redirect, url_for
 from flask_login import login_user, logout_user,  login_required, current_user
 from models import db, Movie, User
+import requests
 
 # 1. 创建蓝图（Blueprint）。这是 Flask 拆分代码的核心！
 # 'main' 是蓝图的名字，__name__ 是当前文件的位置
@@ -98,6 +99,44 @@ def login():
         else:
             return "账号或密码错误！<a href='/login'>重试</a >"
     return render_template('login.html')
+
+@main_bp.route('/api/ai_review/<int:id>')
+def ai_review(id):
+    # 1. 去数据库里找这部电影
+    movie = Movie.query.get_or_404(id)
+    
+    # 2. 把我们要发给 AI 的问题准备好
+    prompt = f"你是一个资深影评人。请根据电影《{movie.title}》以及它的经典台词『{movie.quote}』，写一段150字以内的精彩影评，要求语言优美、引人入胜。"
+    
+    # 3. 准备发给智谱 AI 的数据（照着官方文档的格式填）
+    url = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
+    headers = {
+        "Authorization": "Bearer d7d9ce46687d4602ad1e4c5ab8fd7ce4.OrO8ZZqpcBtrs3Eu", # 注意保留 Bearer 和后面的空格
+        "Content-Type": "application/json"
+    }
+    data = {
+        "model": "glm-4-flash", # 这是免费且极速的模型
+        "messages": [{"role": "user", "content": prompt}]
+    }
+    
+    # 4. 向 AI 发起请求
+    try:
+        response = requests.post(url, headers=headers, json=data, timeout=30)
+        result = response.json()
+
+        # 如果返回的数据里有 error，说明出错了
+        if 'error' in result:
+            return {"success": False, "review": f"AI 报错: {result['error']['message']}"}
+        
+    # 如果没报错，正常拿影评
+        ai_text = result['choices'][0]['message']['content']
+        return {"success": True, "review": ai_text}
+    except Exception as e:
+        # 加上这一行，把真正的错误打印在终端里！
+        print(f"========== AI 报错原因 ==========")
+        print(e)
+        print(f"=================================")
+        return {"success": False, "review": f"AI 报错: {str(e)}"}
 
 # 退出登录
 @main_bp.route('/logout')
