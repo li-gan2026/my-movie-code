@@ -32,11 +32,11 @@ def crawl_movies(app):
                 
                 new_movie = Movie(title=title, rating=float(rating), quote=quote)
                 db.session.add(new_movie)
+                db.session.commit()
                 total_saved += 1
                 
             time.sleep(1) 
             
-        db.session.commit()
         print(f"后台自动抓取：大功告成！一共保存了 {total_saved} 部电影！")
 
 # 这是一个启动定时器的函数

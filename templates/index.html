@@ -4,6 +4,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <script src="https://cdn.bootcdn.net/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
     <link href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <script src="http://cdn.bootcdn.net/aiax/libs/twitter-bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
     <meta charset="utf-8">
     <title>我的新闻聚合</title>
 
@@ -122,60 +123,97 @@
         </table>
      </div>    
     </div>
-<script>
-    // 1. 找到那个画框
-    var chartDom = document.getElementById('chart-container');
-    var myChart = echarts.init(chartDom);
+    <!-- 1. 引入 Bootstrap 的 JS 和 弹窗 HTML -->
+    <script src="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
 
-    // 2. 用 fetch 向后台要数据（就是刚才写的 /api/stats）
-    fetch('/api/stats')
-        .then(response => response.json()) // 把后台的数据转成 JS 对象
-        .then(data => {
-            // 3. 配置图表长什么样
-            var option = {
-                title: { text: '豆瓣 Top250 评分分布', left: 'center' },
-                tooltip: { trigger: 'item' },
-                series: [
-                    {
+    <div class="modal fade" id="aiModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-warning bg-opacity-10">
+                    <h5 class="modal-title">✨ AI 智能影评</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-center py-4">
+                    <div id="aiLoading" class="spinner-border text-warning" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p id="aiLoadingText" class="mt-2 text-muted">AI 正在疯狂码字中，请稍候...</p >
+                    <p id="aiResultText" class="text-start fs-6 d-none" style="line-height: 1.8;"></p >
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. 所有的 JS 逻辑 -->
+    <script>
+        // ================= 1. 画饼图 =================
+        var chartDom = document.getElementById('chart-container');
+        var myChart = echarts.init(chartDom);
+        fetch('/api/stats')
+            .then(response => response.json())
+            .then(data => {
+                var option = {
+                    title: { text: '豆瓣 Top250 评分分布', left: 'center' },
+                    tooltip: { trigger: 'item' },
+                    series: [{
                         name: '电影数量',
-                        type: 'pie', // 饼图
+                        type: 'pie',
                         radius: '50%',
                         data: [
                             { value: data.values[0], name: data.labels[0] },
                             { value: data.values[1], name: data.labels[1] },
                             { value: data.values[2], name: data.labels[2] }
-                        ],
-                        emphasis: {
-                            itemStyle: {
-                                shadowBlur: 10,
-                                shadowOffsetX: 0,
-                                shadowColor: 'rgba(0, 0, 0, 0.5)'
-                            }
-                        }
+                        ]
+                    }]
+                };
+                myChart.setOption(option);
+            });
+
+        // ================= 2. AI 影评弹窗逻辑 =================
+        var aiModal = new bootstrap.Modal(document.getElementById('aiModal'));
+
+        function getAiReview(movieId) {
+            // 显示转圈圈
+            document.getElementById('aiLoading').classList.remove('d-none');
+            document.getElementById('aiLoadingText').classList.remove('d-none');
+            document.getElementById('aiResultText').classList.add('d-none');
+            document.getElementById('aiResultText').innerText = "";
+
+            // 弹出弹窗
+            aiModal.show();
+
+            // 请求后端
+            fetch(`/api/ai_review/${movieId}`)
+                .then(res => res.json())
+                .then(data => {
+                    // 隐藏转圈圈
+                    document.getElementById('aiLoading').classList.add('d-none');
+                    document.getElementById('aiLoadingText').classList.add('d-none');
+                    
+                    // 显示结果
+                    var textElement = document.getElementById('aiResultText');
+                    textElement.classList.remove('d-none');
+                    
+                    if(data.success) {
+                        textElement.innerText = data.review;
+                        textElement.classList.add('text-dark');
+                        textElement.classList.remove('text-danger');
+                    } else {
+                        textElement.innerText = "生成失败：" + data.review;
+                        textElement.classList.add('text-danger');
                     }
-                ]
-            };
-
-            // 4. 把图画出来
-            myChart.setOption(option);
-        });
-       function getAiReview(movieId) {
-    // 提示用户正在生成
-    alert("AI 正在疯狂码字中，点击确定后请稍等 3-5 秒...");
-
-    // 去请求后端的接口
-    fetch(`/api/ai_review/${movieId}`)
-        .then(res => res.json())
-        .then(data => {
-            if(data.success) {
-                // 如果成功，弹窗显示 AI 的影评
-                alert("🤖 AI 影评：\n\n" + data.review);
-            } else {
-                alert("生成失败：" + data.review);
-            }
-        })
-        .catch(err => alert("请求出错啦！请检查网络或终端报错。"));
-}
-</script>
+                })
+                .catch(err => {
+                    document.getElementById('aiLoading').classList.add('d-none');
+                    document.getElementById('aiLoadingText').classList.add('d-none');
+                    document.getElementById('aiResultText').classList.remove('d-none');
+                    document.getElementById('aiResultText').innerText = "网络异常！";
+                    document.getElementById('aiResultText').classList.add('text-danger');
+                });
+        }
+    </script>
 </body>
 </html>

@@ -1,7 +1,12 @@
 from flask import Blueprint, render_template, request, redirect, url_for
 from flask_login import login_user, logout_user,  login_required, current_user
+from werkzeug.security import generate_password_hash, check_password_hash
 from models import db, Movie, User
 import requests
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # 1. 创建蓝图（Blueprint）。这是 Flask 拆分代码的核心！
 # 'main' 是蓝图的名字，__name__ 是当前文件的位置
@@ -74,12 +79,13 @@ def register():
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
+        hashed_password = generate_password_hash(password)
         
         # 查一下这个名字有没有被注册过
         if User.query.filter_by(username=username).first():
             return "这个用户名已经被注册啦！<a href=' '>返回</a >"
             
-        new_user = User(username=username, password=password) # 简单起见，明文密码存了，真实开发要加密！
+        new_user = User(username=username, password=hashed_password) # 简单起见，明文密码存了，真实开发要加密！
         db.session.add(new_user)
         db.session.commit()
         return redirect('/login')
@@ -92,8 +98,8 @@ def login():
         username = request.form.get('username')
         password = request.form.get('password')
         
-        user = User.query.filter_by(username=username, password=password).first()
-        if user:
+        user = User.query.filter_by(username=username).first()
+        if user and check_password_hash(user.password, password):
             login_user(user) # 让管家记住这个人
             return redirect('/')
         else:
@@ -110,8 +116,10 @@ def ai_review(id):
     
     # 3. 准备发给智谱 AI 的数据（照着官方文档的格式填）
     url = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
+    # 把原来写死的 Key，换成从暗格里读
+    api_key = os.getenv("ZHIPU_API_KEY")
     headers = {
-        "Authorization": "Bearer d7d9ce46687d4602ad1e4c5ab8fd7ce4.OrO8ZZqpcBtrs3Eu", # 注意保留 Bearer 和后面的空格
+        "Authorization": f"Bearer {api_key}", 
         "Content-Type": "application/json"
     }
     data = {
