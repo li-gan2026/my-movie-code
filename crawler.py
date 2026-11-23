@@ -1,10 +1,11 @@
 import aiohttp  # 导入异步网络请求库
 import time
 import asyncio  # 导入异步事件循环库
-from models import db, Movie
+from models import db, Movie, Tag, movie_tag
 from bs4 import BeautifulSoup
 import schedule
 import threading
+from routes import movie_cache
 
 # 1. 定义一个异步函数，专门负责抓取单独一页
 async def fetch_page(session, page):
@@ -36,7 +37,16 @@ async def crawl_movies_async(app):
 
         # 注意：数据库操作依然是同步的，我们需要借用 app 上下文
         with app.app_context():
+
+            db.session.execute(movie_tag.delete())
+            
             Movie.query.delete() # 清空旧数据
+            movie_cache.clear()
+            Tag.query.delete()
+            db.session.commit()
+
+            tag_cache = {}
+
             total_saved = 0
             
             # 遍历拿回来的 10 页源码
@@ -51,11 +61,52 @@ async def crawl_movies_async(app):
                     quote = quote_p.text.strip() if quote_p else "暂无引言"
                     
                     new_movie = Movie(title=title, rating=float(rating), quote=quote)
+                    
+                    # 👇 全新的智能打标签逻辑 👇
+                    
+                    # 规则 1：看分数
+                    if float(rating) >= 9.5:
+                        add_tag_to_movie(new_movie, "高分神作", tag_cache)
+                    else:
+                        add_tag_to_movie(new_movie, "经典佳作", tag_cache)
+                        
+                    # 规则 2：看标题里的关键字（假装我们懂分类）
+                    if "星际" in title or "太空" in title or "黑客" in title:
+                        add_tag_to_movie(new_movie, "科幻大片", tag_cache)
+                        
+                    if "杀手" in title or "无间" in title:
+                        add_tag_to_movie(new_movie, "悬疑犯罪", tag_cache)
+                        
+                    if "爱" in title or "情" in title:
+                        add_tag_to_movie(new_movie, "浪漫爱情", tag_cache)
+                        
+                    # 规则 3：看经典引言里的关键字
+                    if "希望" in quote or "自由" in quote:
+                        add_tag_to_movie(new_movie, "治愈励志", tag_cache)
+
+                    # 👆 智能打标签结束 👆
+
                     db.session.add(new_movie)
                     total_saved += 1
                     
             db.session.commit() # 一次性全部入库
             print(f"🎉 大功告成！一共保存了 {total_saved} 部电影！")
+
+#查标签
+def add_tag_to_movie(movie, tag_name, tag_cache):
+    #查缓存
+    if tag_name in tag_cache:
+        tag = tag_cache[tag_name]
+    else:
+        tag = Tag.query.filter_by(name=tag_name).first()
+        if not tag:
+            tag = Tag(name=tag_name)
+            db.session.add(tag)
+        tag_cache[tag_name] = tag
+
+    if tag not in movie.tags:
+        movie.tags.append(tag)
+
 
 # 3. 给定时器提供一个同步的入口（包裹异步任务）
 def job(app):

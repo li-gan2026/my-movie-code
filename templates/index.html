@@ -48,7 +48,7 @@
         {% if current_user.is_authenticated %}
             <a href="/add" class="btn btn-success mb-3">➕ 手动添加电影</a >
         {% endif %}
-        <form action="/" method="GET" class="mb-4">
+        <form id="search-form" action="/" method="GET" class="mb-4">
 
             <div class="input-group" style="max-width: 500px;">
                 <input type="text" class="form-control" name="keyword" placeholder="输入电影名称搜索..." value="{{ request.args.get('keyword', '')}}">
@@ -61,29 +61,9 @@
     <div class="table-responsive">
         <table class="table table-hover table-bordered align-middle">
         <!-- 分页按钮区 -->
-<nav aria-label="Page navigation" class="mt-4">
-    <ul class="pagination justify-content-center">
-        
-        <!-- 上一页按钮：如果有上一页，才显示链接 -->
-        {% if pagination.has_prev %}
-            <!-- 注意网址里要把 keyword 带上，不然翻页后搜索词就丢了 -->
-            <li class="page-item"><a class="page-link" href="/?page={{ pagination.prev_num }}&keyword={{ keyword }}">上一页</a ></li>
-        {% else %}
-            <li class="page-item disabled"><span class="page-link">上一页</span></li>
-        {% endif %}
-
-        <!-- 当前页码显示 -->
-        <li class="page-item active"><span class="page-link">第 {{ pagination.page }} 页 / 共 {{ pagination.pages }} 页</span></li>
-
-            <!-- 下一页按钮 -->
-        {% if pagination.has_next %}
-            <li class="page-item"><a class="page-link" href="/?page={{ pagination.next_num }}&keyword={{ keyword }}">下一页</a ></li>
-        {% else %}
-            <li class="page-item disabled"><span class="page-link">下一页</span></li>
-        {% endif %}
-        
-    </ul>
-</nav>
+{% if pagination %}
+<div id="pagination-container" class="mt-4 d-flex justify-content-center"></div>
+{% endif %}
             <thead class="table-dark">
         <tr>
             <th>编号</th>
@@ -94,12 +74,21 @@
             <th>操作</th>
         </tr>
     </thead>
-<tbody>
+<tbody id="movie-table-body">
     <!-- 注意这里变成了 movies -->
-    {% for m in pagination.items %}
+    {% for m in movies %}
     <tr>
         <td>{{ m.id }}</td>
-        <td><strong>{{ m.title }}</strong></td>
+        <td>
+            <strong>{{ m.title }}</strong>
+            <br>
+            <!-- 循环显示这部电影的所有标签 -->
+            {% for t in m.tags %}
+                <!-- 标签变成绿色的 Bootstrap 小徽章 -->
+                <!-- 以前是 a 标签跳转，现在变成 span 点击 -->
+                <span class="badge bg-success me-1" style="cursor: pointer;" onclick="loadMovies(1, '${t.name}')">${t.name}</span>
+            {% endfor %}
+        </td>
         <!-- 把评分变成红色的徽章 -->
         <td><span class="badge bg-danger fs-6">{{ m.rating }}</span></td>
         <td class="text-muted">{{ m.quote }}</td>
@@ -214,6 +203,72 @@
                     document.getElementById('aiResultText').classList.add('text-danger');
                 });
         }
+        // ================= 3. 新增：AJAX 搜索与分页逻辑 =================
+            var currentKeyword = "";
+
+            // 核心函数：现在可以传第二个参数（标签）了
+            function loadMovies(page, tag = "") {
+                // 如果点击了标签，清空搜索框，防止冲突
+                if(tag !== "") {
+                    document.querySelector('input[name="keyword"]').value = "";
+                    currentKeyword = "";
+                }
+
+                fetch(`/api/movies?keyword=${currentKeyword}&tag=${tag}&page=${page}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success) {
+                            // 渲染表格（和以前一样，不讲了）
+                            var tbody = document.getElementById('movie-table-body');
+                            tbody.innerHTML = ""; 
+                            data.data.forEach(function(m) {
+                                var tagsHtml = "";
+                                m.tags.forEach(function(t) {
+                                    tagsHtml += `<span class="badge bg-success me-1" style="cursor: pointer;" onclick="loadMovies(1, '${t}')">${t}</span>`;
+                                });
+                                var row = `
+                                    <tr>
+                                        <td>${m.id}</td>
+                                        <td><strong>${m.title}</strong><br>${tagsHtml}</td>
+                                        <td><span class="badge bg-danger fs-6">${m.rating}</span></td>
+                                        <td class="text-muted">${m.quote}</td>
+                                        <td><small class="text-muted">刚刚更新</small></td>
+                                    </tr>
+                                `;
+                                tbody.innerHTML += row;
+                            });
+
+                            // 渲染分页按钮（和以前一样，不讲了）
+                            var paginationContainer = document.getElementById('pagination-container');
+                            var paginationHtml = `<nav><ul class="pagination">`;
+                            if(data.has_prev) {
+                                paginationHtml += `<li class="page-item"><a class="page-link" href=" " onclick="loadMovies(${data.page - 1}, '${tag}'); return false;">上一页</a ></li>`;
+                            } else {
+                                paginationHtml += `<li class="page-item disabled"><span class="page-link">上一页</span></li>`;
+                            }
+                            paginationHtml += `<li class="page-item active"><span class="page-link">第 ${data.page} 页 / 共 ${data.total_pages} 页</span></li>`;
+                            if(data.has_next) {
+                                paginationHtml += `<li class="page-item"><a class="page-link" href="#" onclick="loadMovies(${data.page + 1}, '${tag}'); return false;">下一页</a ></li>`;
+                            } else {
+                                paginationHtml += `<li class="page-item disabled"><span class="page-link">下一页</span></li>`;
+                            }
+                            paginationHtml += `</ul></nav>`;
+                            paginationContainer.innerHTML = paginationHtml;
+                        }
+                    });
+            }
+
+            // 表单提交拦截（调用 loadMovies 时不传标签）
+            document.getElementById('search-form').addEventListener('submit', function(event) {
+                event.preventDefault();
+                currentKeyword = document.querySelector('input[name="keyword"]').value;
+                loadMovies(1); 
+            });
+
+            // 页面加载时初始化
+            window.onload = function() {
+                loadMovies(1);
+            };
     </script>
 </body>
 </html>
